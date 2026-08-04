@@ -2,7 +2,7 @@ manifestVersion: 1
 id: buzz-relay
 category: social
 name: Buzz Relay
-version: "0.2.5"
+version: "0.2.6"
 tagline: Self-host a Buzz workspace for humans and agents
 description: >-
   Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
@@ -17,27 +17,25 @@ description: >-
   First-run setup:
 
 
-  1. Open this app from the Umbrel home screen. The Buzz web UI loads at the
-  root (port 3737). First start can take a few minutes while images finish
-  pulling and the database migrates — if you see connection refused, wait and
-  retry, or check the app logs.
+  1. Open this app (port 3737). You land on /umbrel-setup/ with the WebSocket
+  Join URL and bootstrap owner secret — back that secret up. First start can
+  take a minute or two while images pull and the database migrates.
 
 
-  2. Get the WebSocket URL and bootstrap owner key from the app Logs (look for
-  lines starting with "App: buzz-relay - Join URL") or from
-  data/setup/JOIN.txt on the Umbrel. Back up the owner secret — it controls the
-  relay owner role.
+  2. In Buzz Desktop, choose Join a Community (not “Open in Buzz” from the empty
+  web UI) and paste the WebSocket URL exactly. Scheme, host, and port must match
+  — typically ws://umbrel.local:3737. Use ws:// on a pure LAN, not wss://.
 
 
-  3. In Buzz Desktop, choose Join a Community and paste the WebSocket URL
-  (scheme must be ws:// on your LAN, or wss:// if you terminate TLS in front of
-  Umbrel). Host, port, and scheme must match exactly — typically
-  ws://umbrel.local:3737.
+  3. This is a closed membership relay. Your Desktop identity must be the relay
+  owner (or an invited member). Easiest: write your Desktop hex public key to
+  data/secrets/owner-pubkey.override, restart the app, then Join a Community
+  with that same Desktop identity. Or import the bootstrap owner secret shown
+  on the setup page.
 
 
-  4. Optional: replace the bootstrap owner with your existing Buzz Desktop
-  public key by writing a 64-character hex pubkey to
-  data/secrets/owner-pubkey.override and restarting the app.
+  4. The Buzz web UI at / may show “auth-required” toasts until you are joined
+  as a member — that is expected for the empty public view.
 
 
   Tip: Install Tailscale on Umbrel and your devices for access away from home.
@@ -50,9 +48,10 @@ description: >-
   ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
   Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
 releaseNotes: >-
-  Fix immediate install failure in 0.2.4: docker-compose.yml declared
-  BUZZ_GIT_CONFORMANCE_PROBE twice, which Compose/go-yaml rejects. Keep the
-  MinIO service-name S3 endpoint and a single probe=false setting.
+  Serve /umbrel-setup/ again (Join URL + owner secret in the browser — no log
+  diving). App opens to the setup page. Nginx config is generated in-container
+  (avoids the old bind-mount failure). Clarifies closed-relay invite vs Join a
+  Community flow.
 developer: Block
 website: https://buzz.xyz
 dependencies: []
@@ -60,7 +59,7 @@ repo: https://github.com/block/buzz
 support: https://github.com/block/buzz/issues
 port: 3737
 gallery: []
-path: ""
+path: umbrel-setup/
 defaultUsername: ""
 defaultPassword: ""
 submitter: Forrest Bice

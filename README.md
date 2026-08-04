@@ -17,9 +17,9 @@ Pinned upstream image: `ghcr.io/block/buzz:0.2.0` (linux/amd64 + linux/arm64).
 1. Push this repository to GitHub (public).
 2. On umbrelOS: **App Store → three-dot menu → Community App Stores → Add** and paste the GitHub repo URL.
 3. Install **Buzz Relay** from the Buzz community store.
-4. Open the app (Buzz web UI on port **3737**). First boot can take several minutes.
-5. Copy the WebSocket URL from **app Logs** (`App: buzz-relay - Join URL`) or `data/setup/JOIN.txt`.
-6. In Buzz Desktop → **Join a Community** → paste the `ws://…` URL exactly (e.g. `ws://umbrel.local:3737`).
+4. Open the app (port **3737**). You should land on `/umbrel-setup/` with the Join URL + owner secret. First boot can take a couple of minutes.
+5. In Buzz Desktop → **Join a Community** (not “Open in Buzz” from the empty web UI) → paste the `ws://…` URL exactly (e.g. `ws://umbrel.local:3737`).
+6. Closed relay: join as owner (set `data/secrets/owner-pubkey.override` to your Desktop hex pubkey and restart, or import the bootstrap owner secret), or accept an invite.
 
 ### Optional: use your existing Buzz Desktop identity as owner
 
