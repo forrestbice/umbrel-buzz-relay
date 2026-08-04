@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generate persistent Nostr identity keys and the /umbrel-setup status page.
+# Generate persistent Nostr identity keys and setup artifacts.
 # Infra passwords come from exports.sh (derive_entropy). Identity keys are
 # random, written once under data/secrets/, and must survive restarts.
 set -euo pipefail
@@ -13,12 +13,25 @@ OWNER_OVERRIDE="${SECRETS_DIR}/owner-pubkey.override"
 OWNER_SECRET_FILE="${SECRETS_DIR}/owner.secret"
 OWNER_PUBKEY_FILE="${SECRETS_DIR}/owner.pubkey"
 RELAY_SECRET_FILE="${SECRETS_DIR}/relay.secret"
+JOIN_TXT="${SETUP_DIR}/JOIN.txt"
 BUZZ_IMAGE="ghcr.io/block/buzz:0.2.0@sha256:a0f67203d71d15d237fa7517788799957c30c8acdb81cbcff711e07e951c2710"
 
 EXPORT_OWNER_PUBKEY=""
 EXPORT_OWNER_SECRET=""
 
-mkdir -p "${SECRETS_DIR}" "${SETUP_DIR}"
+# Ensure volume mount points exist before compose starts (avoids root-owned surprises).
+mkdir -p \
+  "${SECRETS_DIR}" \
+  "${SETUP_DIR}" \
+  "${DATA_DIR}/git" \
+  "${DATA_DIR}/postgres" \
+  "${DATA_DIR}/redis" \
+  "${DATA_DIR}/minio"
+
+# If a prior broken bind-mount turned nginx.conf into a directory, clean it up.
+if [[ -d "${DATA_DIR}/proxy/nginx.conf" ]]; then
+  rm -rf "${DATA_DIR}/proxy/nginx.conf"
+fi
 
 generate_keypair() {
   local output pubkey secret
@@ -86,6 +99,7 @@ html_escape() {
 
 render_setup_page() {
   local ws_url http_origin owner_pubkey owner_secret owner_note owner_secret_block
+  local ws_url_e http_origin_e
   ws_url="${APP_BUZZ_RELAY_WS_URL:-ws://${DEVICE_DOMAIN_NAME:-umbrel.local}:${APP_PROXY_PORT:-3737}}"
   http_origin="${APP_BUZZ_RELAY_HTTP_ORIGIN:-http://${DEVICE_DOMAIN_NAME:-umbrel.local}:${APP_PROXY_PORT:-3737}}"
   owner_pubkey="$(html_escape "${EXPORT_OWNER_PUBKEY}")"
@@ -156,8 +170,45 @@ render_setup_page() {
 </body>
 </html>
 EOF
+
+  cat > "${JOIN_TXT}" <<EOF
+Buzz Relay — Umbrel join info
+=============================
+
+Web UI:     ${http_origin}/
+WebSocket:  ${ws_url}
+
+Owner pubkey (hex):
+${EXPORT_OWNER_PUBKEY}
+
+EOF
+
+  if [[ -n "${EXPORT_OWNER_SECRET}" ]]; then
+    cat >> "${JOIN_TXT}" <<EOF
+Bootstrap owner secret key (back this up):
+${EXPORT_OWNER_SECRET}
+
+EOF
+  else
+    cat >> "${JOIN_TXT}" <<EOF
+Bootstrap owner secret: not shown (owner-pubkey.override is set).
+
+EOF
+  fi
+
+  chmod 600 "${JOIN_TXT}" || true
+
+  echo "App: buzz-relay - ============================================"
+  echo "App: buzz-relay - Join URL (Buzz Desktop): ${ws_url}"
+  echo "App: buzz-relay - Web UI: ${http_origin}/"
+  echo "App: buzz-relay - Owner pubkey: ${EXPORT_OWNER_PUBKEY}"
+  if [[ -n "${EXPORT_OWNER_SECRET}" ]]; then
+    echo "App: buzz-relay - Owner secret: ${EXPORT_OWNER_SECRET}"
+  fi
+  echo "App: buzz-relay - Also written to data/setup/JOIN.txt"
+  echo "App: buzz-relay - ============================================"
 }
 
 ensure_identity_secrets
 render_setup_page
-echo "App: buzz-relay - setup page ready at /umbrel-setup/"
+echo "App: buzz-relay - setup artifacts ready under data/setup/"

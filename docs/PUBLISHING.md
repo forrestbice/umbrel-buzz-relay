@@ -28,7 +28,7 @@ Follow [getumbrel/umbrel-apps](https://github.com/getumbrel/umbrel-apps) (`READM
 - [ ] Confirm every image is public, pinned `tag@sha256`, and supports `linux/amd64` + `linux/arm64`.
 - [ ] Confirm host `port: 3737` is still unused in `umbrel-apps` (re-check at PR time).
 - [ ] Run the repo linter: `npm run lint:apps -- buzz-relay --check-images`.
-- [ ] Test on real umbrelOS: install → open UI → open `/umbrel-setup/` → join from Buzz Desktop → restart → data persists.
+- [ ] Test on real umbrelOS: install → open UI → confirm Join URL in logs/`data/setup/JOIN.txt` → join from Buzz Desktop → restart → data persists.
 - [ ] Attach screenshots + logo source in the PR body (do not commit gallery binaries for official apps).
 - [ ] Call out `PROXY_AUTH_ADD: "false"` (required for external clients) and the identity-key backup surface.
 

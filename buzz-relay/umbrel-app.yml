@@ -2,7 +2,7 @@ manifestVersion: 1
 id: buzz-relay
 category: social
 name: Buzz Relay
-version: "0.2.0"
+version: "0.2.1"
 tagline: Self-host a Buzz workspace for humans and agents
 description: >-
   Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
@@ -18,17 +18,21 @@ description: >-
 
 
   1. Open this app from the Umbrel home screen. The Buzz web UI loads at the
-  root; Umbrel setup details (WebSocket URL and bootstrap owner key) are at
-  /umbrel-setup/.
+  root (port 3737). First start can take a few minutes while images finish
+  pulling and the database migrates — if you see connection refused, wait and
+  retry, or check the app logs.
 
 
-  2. Back up the bootstrap owner secret key shown on /umbrel-setup/. That key
-  is the relay owner and cannot be removed through ordinary admin flows.
+  2. Get the WebSocket URL and bootstrap owner key from the app Logs (look for
+  lines starting with "App: buzz-relay - Join URL") or from
+  data/setup/JOIN.txt on the Umbrel. Back up the owner secret — it controls the
+  relay owner role.
 
 
-  3. In Buzz Desktop, choose Join a Community and paste the WebSocket URL from
-  the setup page (scheme must be ws:// on your LAN, or wss:// if you terminate
-  TLS in front of Umbrel). Host, port, and scheme must match exactly.
+  3. In Buzz Desktop, choose Join a Community and paste the WebSocket URL
+  (scheme must be ws:// on your LAN, or wss:// if you terminate TLS in front of
+  Umbrel). Host, port, and scheme must match exactly — typically
+  ws://umbrel.local:3737.
 
 
   4. Optional: replace the bootstrap owner with your existing Buzz Desktop
@@ -46,7 +50,10 @@ description: >-
   ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
   Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
 releaseNotes: >-
-  Initial Umbrel package for Buzz relay 0.2.0.
+  Fix connection refused on open: Umbrel app_proxy now targets the Buzz relay
+  directly on port 3000 (removed fragile nginx middle-proxy). Redis matches
+  upstream (no forced uid 1000). Join URL + owner key are printed to app logs
+  and data/setup/JOIN.txt.
 developer: Block
 website: https://buzz.xyz
 dependencies: []

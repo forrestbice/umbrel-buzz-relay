@@ -17,8 +17,9 @@ Pinned upstream image: `ghcr.io/block/buzz:0.2.0` (linux/amd64 + linux/arm64).
 1. Push this repository to GitHub (public).
 2. On umbrelOS: **App Store → three-dot menu → Community App Stores → Add** and paste the GitHub repo URL.
 3. Install **Buzz Relay** from the Buzz community store.
-4. Open the app, then visit `/umbrel-setup/` for the WebSocket URL and bootstrap owner key.
-5. In Buzz Desktop → **Join a Community** → paste the `ws://…` URL exactly.
+4. Open the app (Buzz web UI on port **3737**). First boot can take several minutes.
+5. Copy the WebSocket URL from **app Logs** (`App: buzz-relay - Join URL`) or `data/setup/JOIN.txt`.
+6. In Buzz Desktop → **Join a Community** → paste the `ws://…` URL exactly (e.g. `ws://umbrel.local:3737`).
 
 ### Optional: use your existing Buzz Desktop identity as owner
 
@@ -35,14 +36,13 @@ Then start/restart the app. Get the pubkey from Buzz Desktop → Settings → Id
 ```text
 buzz-relay/
   umbrel-app.yml       # Store listing + host port 3737
-  docker-compose.yml   # proxy, web, postgres, redis, minio, minio-init
+  docker-compose.yml   # relay, postgres, redis, minio, minio-init
   exports.sh           # Derived DB/Redis/S3/HMAC secrets + public URLs
-  hooks/pre-start      # Persist Nostr identity keys + render setup page
-  data/proxy/nginx.conf
+  hooks/pre-start      # Persist Nostr identity keys + write data/setup/
   data/{secrets,postgres,redis,minio,git,setup}/
 ```
 
-`app_proxy` fronts nginx (`PROXY_AUTH_ADD=false` so Buzz Desktop can connect without Umbrel cookies). nginx serves `/umbrel-setup/` and reverse-proxies everything else (including WebSockets) to the Buzz relay.
+`app_proxy` fronts the Buzz relay on port 3000 with `PROXY_AUTH_ADD=false` so Buzz Desktop can connect without Umbrel cookies. Umbrel’s proxy handles WebSocket upgrades.
 
 ## Publishing
 
