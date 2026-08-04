@@ -2,7 +2,7 @@ manifestVersion: 1
 id: buzz-relay
 category: social
 name: Buzz Relay
-version: "0.2.3"
+version: "0.2.4"
 tagline: Self-host a Buzz workspace for humans and agents
 description: >-
   Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
@@ -50,9 +50,10 @@ description: >-
   ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
   Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
 releaseNotes: >-
-  Fix install stall/fail: remove depends_on health/completed_successfully gates
-  that could hang compose up forever after a failed MinIO init or unhealthy DB.
-  MinIO bucket setup now retries; keygen has a 120s timeout.
+  Fix connection refused after install: MinIO/S3 rejected underscore hostnames
+  (buzz-relay_minio_1), crashing the relay on the git/S3 probe. S3 endpoint
+  now uses Compose service name minio; git conformance probe disabled so a
+  warming MinIO cannot take down the UI.
 developer: Block
 website: https://buzz.xyz
 dependencies: []
