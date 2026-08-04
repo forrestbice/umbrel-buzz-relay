@@ -30,7 +30,6 @@ services:
       BUZZ_REQUIRE_RELAY_MEMBERSHIP: "true"
       BUZZ_ALLOW_NIP_OA_AUTH: "true"
       BUZZ_AUTO_MIGRATE: "true"
-      BUZZ_GIT_CONFORMANCE_PROBE: "true"
       BUZZ_GIT_REPO_PATH: /data/git
       # Postgres/Redis: Umbrel full container DNS (safe on the shared app network).
       # MinIO/S3: MUST use the Compose service name `minio` — AWS/MinIO reject
@@ -47,6 +46,8 @@ services:
       BUZZ_DB_POOL_SIZE: "10"
       BUZZ_DB_READ_POOL_SIZE: "5"
       # Soft depends_on means MinIO may still be warming; don't kill the UI for that.
+      # Do not declare this key twice — Compose/go-yaml rejects duplicate mapping keys
+      # and Umbrel install fails immediately.
       BUZZ_GIT_CONFORMANCE_PROBE: "false"
       RUST_LOG: buzz_relay=info,buzz_db=info,buzz_auth=info,buzz_pubsub=info,tower_http=info
     # IMPORTANT: do not use condition: service_healthy / service_completed_successfully.
