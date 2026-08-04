@@ -2,7 +2,7 @@ manifestVersion: 1
 id: buzz-relay
 category: social
 name: Buzz Relay
-version: "0.2.1"
+version: "0.2.2"
 tagline: Self-host a Buzz workspace for humans and agents
 description: >-
   Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
@@ -50,10 +50,10 @@ description: >-
   ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
   Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
 releaseNotes: >-
-  Fix connection refused on open: Umbrel app_proxy now targets the Buzz relay
-  directly on port 3000 (removed fragile nginx middle-proxy). Redis matches
-  upstream (no forced uid 1000). Join URL + owner key are printed to app logs
-  and data/setup/JOIN.txt.
+  Fix relay crash-loop / connection refused: internal DB/Redis/MinIO URLs now
+  use Umbrel full container DNS names (buzz-relay_postgres_1, etc.) so they
+  cannot resolve to another app's postgres on the shared network. Postgres
+  healthcheck authenticates as role buzz; DB pool sized for Umbrel.
 developer: Block
 website: https://buzz.xyz
 dependencies: []
