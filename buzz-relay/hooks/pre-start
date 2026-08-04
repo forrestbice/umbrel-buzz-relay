@@ -39,7 +39,12 @@ generate_keypair() {
     echo "App: buzz-relay - docker is required to generate Nostr keypairs" >&2
     exit 1
   fi
-  output="$(docker run --rm --entrypoint /usr/local/bin/buzz-admin "${BUZZ_IMAGE}" generate-key)"
+  # Cap runtime so a hung docker pull/run cannot wedge Umbrel install forever.
+  if command -v timeout >/dev/null 2>&1; then
+    output="$(timeout 120s docker run --rm --entrypoint /usr/local/bin/buzz-admin "${BUZZ_IMAGE}" generate-key)"
+  else
+    output="$(docker run --rm --entrypoint /usr/local/bin/buzz-admin "${BUZZ_IMAGE}" generate-key)"
+  fi
   pubkey="$(printf '%s\n' "${output}" | awk '/Public key:/{print $3; exit}')"
   secret="$(printf '%s\n' "${output}" | awk '/Secret key:/{print $3; exit}')"
   if [[ -z "${pubkey}" || -z "${secret}" || "${#pubkey}" -ne 64 || "${#secret}" -ne 64 ]]; then
