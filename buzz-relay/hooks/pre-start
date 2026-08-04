@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# Generate persistent Nostr identity keys and the /umbrel-setup status page.
+# Infra passwords come from exports.sh (derive_entropy). Identity keys are
+# random, written once under data/secrets/, and must survive restarts.
+set -euo pipefail
+
+APP_DIR="${APP_DATA_DIR:-$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")}"
+DATA_DIR="${APP_DIR}/data"
+SECRETS_DIR="${DATA_DIR}/secrets"
+SETUP_DIR="${DATA_DIR}/setup"
+RELAY_ENV="${SECRETS_DIR}/relay.env"
+OWNER_OVERRIDE="${SECRETS_DIR}/owner-pubkey.override"
+OWNER_SECRET_FILE="${SECRETS_DIR}/owner.secret"
+OWNER_PUBKEY_FILE="${SECRETS_DIR}/owner.pubkey"
+RELAY_SECRET_FILE="${SECRETS_DIR}/relay.secret"
+BUZZ_IMAGE="ghcr.io/block/buzz:0.2.0@sha256:a0f67203d71d15d237fa7517788799957c30c8acdb81cbcff711e07e951c2710"
+
+EXPORT_OWNER_PUBKEY=""
+EXPORT_OWNER_SECRET=""
+
+mkdir -p "${SECRETS_DIR}" "${SETUP_DIR}"
+
+generate_keypair() {
+  local output pubkey secret
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "App: buzz-relay - docker is required to generate Nostr keypairs" >&2
+    exit 1
+  fi
+  output="$(docker run --rm --entrypoint /usr/local/bin/buzz-admin "${BUZZ_IMAGE}" generate-key)"
+  pubkey="$(printf '%s\n' "${output}" | awk '/Public key:/{print $3; exit}')"
+  secret="$(printf '%s\n' "${output}" | awk '/Secret key:/{print $3; exit}')"
+  if [[ -z "${pubkey}" || -z "${secret}" || "${#pubkey}" -ne 64 || "${#secret}" -ne 64 ]]; then
+    echo "App: buzz-relay - failed to parse buzz-admin generate-key output:" >&2
+    printf '%s\n' "${output}" >&2
+    exit 1
+  fi
+  GENERATED_PUBKEY="${pubkey}"
+  GENERATED_SECRET="${secret}"
+}
+
+ensure_identity_secrets() {
+  local relay_secret owner_pubkey owner_secret=""
+
+  if [[ ! -f "${RELAY_SECRET_FILE}" ]]; then
+    generate_keypair
+    printf '%s\n' "${GENERATED_SECRET}" > "${RELAY_SECRET_FILE}"
+    chmod 600 "${RELAY_SECRET_FILE}"
+    echo "App: buzz-relay - generated relay identity key"
+  fi
+  relay_secret="$(tr -d '[:space:]' < "${RELAY_SECRET_FILE}")"
+
+  if [[ -f "${OWNER_OVERRIDE}" ]]; then
+    owner_pubkey="$(tr -d '[:space:]' < "${OWNER_OVERRIDE}")"
+    if [[ ! "${owner_pubkey}" =~ ^[0-9a-fA-F]{64}$ ]]; then
+      echo "App: buzz-relay - owner-pubkey.override must be a 64-char hex pubkey" >&2
+      exit 1
+    fi
+    printf '%s\n' "${owner_pubkey}" > "${OWNER_PUBKEY_FILE}"
+    echo "App: buzz-relay - using owner pubkey override"
+  elif [[ -f "${OWNER_SECRET_FILE}" && -f "${OWNER_PUBKEY_FILE}" ]]; then
+    owner_pubkey="$(tr -d '[:space:]' < "${OWNER_PUBKEY_FILE}")"
+    owner_secret="$(tr -d '[:space:]' < "${OWNER_SECRET_FILE}")"
+  else
+    generate_keypair
+    owner_pubkey="${GENERATED_PUBKEY}"
+    owner_secret="${GENERATED_SECRET}"
+    printf '%s\n' "${owner_secret}" > "${OWNER_SECRET_FILE}"
+    printf '%s\n' "${owner_pubkey}" > "${OWNER_PUBKEY_FILE}"
+    chmod 600 "${OWNER_SECRET_FILE}"
+    echo "App: buzz-relay - generated bootstrap owner keypair"
+  fi
+
+  cat > "${RELAY_ENV}" <<EOF
+BUZZ_RELAY_PRIVATE_KEY=${relay_secret}
+RELAY_OWNER_PUBKEY=${owner_pubkey}
+EOF
+  chmod 600 "${RELAY_ENV}"
+
+  EXPORT_OWNER_PUBKEY="${owner_pubkey}"
+  EXPORT_OWNER_SECRET="${owner_secret}"
+}
+
+html_escape() {
+  printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+}
+
+render_setup_page() {
+  local ws_url http_origin owner_pubkey owner_secret owner_note owner_secret_block
+  ws_url="${APP_BUZZ_RELAY_WS_URL:-ws://${DEVICE_DOMAIN_NAME:-umbrel.local}:${APP_PROXY_PORT:-3737}}"
+  http_origin="${APP_BUZZ_RELAY_HTTP_ORIGIN:-http://${DEVICE_DOMAIN_NAME:-umbrel.local}:${APP_PROXY_PORT:-3737}}"
+  owner_pubkey="$(html_escape "${EXPORT_OWNER_PUBKEY}")"
+  owner_secret="$(html_escape "${EXPORT_OWNER_SECRET}")"
+  ws_url_e="$(html_escape "${ws_url}")"
+  http_origin_e="$(html_escape "${http_origin}")"
+
+  if [[ -f "${OWNER_OVERRIDE}" ]]; then
+    owner_note="Owner pubkey comes from data/secrets/owner-pubkey.override. Use your existing Buzz Desktop identity to join."
+    owner_secret_block="<p><em>Bootstrap owner secret is not shown because an override pubkey is configured.</em></p>"
+  else
+    owner_note="This bootstrap owner was generated on first start. Import the secret key into Buzz Desktop (or keep it offline as a recovery key). Back it up before you rely on this relay."
+    owner_secret_block="<div class=\"card\"><h2>Bootstrap owner secret key</h2><p class=\"warn\">Treat this like a password. Anyone with it controls the relay owner role.</p><code>${owner_secret}</code></div>"
+  fi
+
+  cat > "${SETUP_DIR}/index.html" <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Buzz Relay — Umbrel setup</title>
+  <style>
+    :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+    body { margin: 0; padding: 2rem; line-height: 1.45; max-width: 46rem; }
+    h1 { margin-top: 0; font-size: 1.6rem; }
+    .card { border: 1px solid #8884; border-radius: 12px; padding: 1rem 1.1rem; margin: 1rem 0; }
+    code { display: block; overflow-wrap: anywhere; word-break: break-all; padding: 0.75rem; border-radius: 8px; background: #8882; }
+    .warn { color: #b45309; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <h1>Buzz Relay</h1>
+  <p>Your self-hosted Buzz workspace is running on this Umbrel.</p>
+
+  <div class="card">
+    <h2>Web UI</h2>
+    <p><a href="/">${http_origin_e}/</a></p>
+  </div>
+
+  <div class="card">
+    <h2>Buzz Desktop — Join a Community</h2>
+    <p>Paste this WebSocket URL exactly (scheme, host, and port must match):</p>
+    <code>${ws_url_e}</code>
+    <p>On a pure LAN install use <code style="display:inline;padding:0.1rem 0.3rem">ws://</code>, not <code style="display:inline;padding:0.1rem 0.3rem">wss://</code>.</p>
+  </div>
+
+  <div class="card">
+    <h2>Owner public key (hex)</h2>
+    <p>${owner_note}</p>
+    <code>${owner_pubkey}</code>
+  </div>
+
+  ${owner_secret_block}
+
+  <div class="card">
+    <h2>Backups</h2>
+    <ul>
+      <li><code style="display:inline;padding:0.1rem 0.3rem">data/secrets/</code> — relay identity + owner keys</li>
+      <li><code style="display:inline;padding:0.1rem 0.3rem">data/postgres/</code> — event database</li>
+      <li><code style="display:inline;padding:0.1rem 0.3rem">data/minio/</code> — media / object storage</li>
+      <li><code style="display:inline;padding:0.1rem 0.3rem">data/git/</code> — git scratch volume</li>
+    </ul>
+  </div>
+
+  <p>Upstream guide: <a href="https://engineering.block.xyz/blog/run-your-own-buzz-relay">Run your own Buzz relay</a></p>
+</body>
+</html>
+EOF
+}
+
+ensure_identity_secrets
+render_setup_page
+echo "App: buzz-relay - setup page ready at /umbrel-setup/"

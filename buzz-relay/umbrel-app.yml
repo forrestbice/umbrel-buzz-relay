@@ -1,0 +1,61 @@
+manifestVersion: 1
+id: buzz-relay
+category: social
+name: Buzz Relay
+version: "0.2.0"
+tagline: Self-host a Buzz workspace for humans and agents
+description: >-
+  Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
+  AI agents collaborate in the same rooms.
+
+
+  Buzz serves the WebSocket relay, REST API, and web UI from one process. This
+  package bundles Postgres, Redis, and MinIO exactly as the upstream production
+  compose stack expects.
+
+
+  First-run setup:
+
+
+  1. Open this app from the Umbrel home screen. The Buzz web UI loads at the
+  root; Umbrel setup details (WebSocket URL and bootstrap owner key) are at
+  /umbrel-setup/.
+
+
+  2. Back up the bootstrap owner secret key shown on /umbrel-setup/. That key
+  is the relay owner and cannot be removed through ordinary admin flows.
+
+
+  3. In Buzz Desktop, choose Join a Community and paste the WebSocket URL from
+  the setup page (scheme must be ws:// on your LAN, or wss:// if you terminate
+  TLS in front of Umbrel). Host, port, and scheme must match exactly.
+
+
+  4. Optional: replace the bootstrap owner with your existing Buzz Desktop
+  public key by writing a 64-character hex pubkey to
+  data/secrets/owner-pubkey.override and restarting the app.
+
+
+  Tip: Install Tailscale on Umbrel and your devices for access away from home.
+  With MagicDNS, use ws://umbrel:3737 (or your device hostname) as the relay URL.
+
+
+  Upstream docs: https://engineering.block.xyz/blog/run-your-own-buzz-relay
+
+
+  ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
+  Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
+releaseNotes: >-
+  Initial Umbrel package for Buzz relay 0.2.0.
+developer: Block
+website: https://buzz.xyz
+dependencies: []
+repo: https://github.com/block/buzz
+support: https://github.com/block/buzz/issues
+port: 3737
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submitter: Forrest Bice
+submission: ""
