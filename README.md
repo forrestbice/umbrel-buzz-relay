@@ -42,7 +42,7 @@ buzz-relay/
   data/{secrets,postgres,redis,minio,git,setup}/
 ```
 
-`app_proxy` fronts the Buzz relay on port 3000 with `PROXY_AUTH_ADD=false` so Buzz Desktop can connect without Umbrel cookies. Umbrel’s proxy handles WebSocket upgrades.
+`app_proxy` fronts a thin nginx on port 8080 (`PROXY_AUTH_ADD=false`) that serves `/umbrel-setup/` and proxies `/` (with WebSocket upgrades) to the Buzz relay. Nginx must forward the full `Host` header including port (`$http_host`) so Buzz can match the community bound to `umbrel.local:3737`.
 
 ## Publishing
 

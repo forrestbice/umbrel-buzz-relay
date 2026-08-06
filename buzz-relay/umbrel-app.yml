@@ -2,7 +2,7 @@ manifestVersion: 1
 id: buzz-relay
 category: social
 name: Buzz Relay
-version: "0.2.6"
+version: "0.2.7"
 tagline: Self-host a Buzz workspace for humans and agents
 description: >-
   Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
@@ -48,10 +48,9 @@ description: >-
   ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
   Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
 releaseNotes: >-
-  Serve /umbrel-setup/ again (Join URL + owner secret in the browser — no log
-  diving). App opens to the setup page. Nginx config is generated in-container
-  (avoids the old bind-mount failure). Clarifies closed-relay invite vs Join a
-  Community flow.
+  Fix `/` returning "no community is configured for this host" after 0.2.6.
+  Nginx now forwards the full Host header (including port) so Buzz can match
+  the community bound to umbrel.local:3737. `/umbrel-setup/` unchanged.
 developer: Block
 website: https://buzz.xyz
 dependencies: []
