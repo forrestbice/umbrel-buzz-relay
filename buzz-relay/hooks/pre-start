@@ -98,95 +98,21 @@ EOF
   EXPORT_OWNER_SECRET="${owner_secret}"
 }
 
-html_escape() {
-  printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+install_setup_server() {
+  local hooks_dir
+  hooks_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ ! -f "${hooks_dir}/setup_server.py" ]]; then
+    echo "App: buzz-relay - missing hooks/setup_server.py" >&2
+    exit 1
+  fi
+  cp "${hooks_dir}/setup_server.py" "${SETUP_DIR}/server.py"
+  chmod 755 "${SETUP_DIR}/server.py"
 }
 
-render_setup_page() {
-  local ws_url http_origin owner_pubkey owner_secret owner_note owner_secret_block
-  local ws_url_e http_origin_e
+write_join_txt() {
+  local ws_url http_origin
   ws_url="${APP_BUZZ_RELAY_WS_URL:-ws://${DEVICE_DOMAIN_NAME:-umbrel.local}:${APP_PROXY_PORT:-3737}}"
   http_origin="${APP_BUZZ_RELAY_HTTP_ORIGIN:-http://${DEVICE_DOMAIN_NAME:-umbrel.local}:${APP_PROXY_PORT:-3737}}"
-  owner_pubkey="$(html_escape "${EXPORT_OWNER_PUBKEY}")"
-  owner_secret="$(html_escape "${EXPORT_OWNER_SECRET}")"
-  ws_url_e="$(html_escape "${ws_url}")"
-  http_origin_e="$(html_escape "${http_origin}")"
-
-  if [[ -f "${OWNER_OVERRIDE}" ]]; then
-    owner_note="Owner pubkey comes from data/secrets/owner-pubkey.override. Use your existing Buzz Desktop identity to join."
-    owner_secret_block="<p><em>Bootstrap owner secret is not shown because an override pubkey is configured.</em></p>"
-  else
-    owner_note="This bootstrap owner was generated on first start. Import the secret key into Buzz Desktop (or keep it offline as a recovery key). Back it up before you rely on this relay."
-    owner_secret_block="<p class=\"warn\">Bootstrap owner secret key — treat like a password. Anyone with it controls the relay owner role.</p><code>${owner_secret}</code>"
-  fi
-
-  cat > "${SETUP_DIR}/index.html" <<EOF
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Buzz Relay — Umbrel setup</title>
-  <style>
-    :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
-    body { margin: 0; padding: 2rem; line-height: 1.45; max-width: 46rem; }
-    h1 { margin-top: 0; font-size: 1.6rem; }
-    .card { border: 1px solid #8884; border-radius: 12px; padding: 1rem 1.1rem; margin: 1rem 0; }
-    code { display: block; overflow-wrap: anywhere; word-break: break-all; padding: 0.75rem; border-radius: 8px; background: #8882; }
-    .warn { color: #b45309; }
-    .callout { border-left: 4px solid #b45309; background: #b4530914; padding: 0.85rem 1rem; margin: 1rem 0; border-radius: 0 8px 8px 0; }
-    a { color: inherit; }
-    ol.setup { padding-left: 1.2rem; }
-    ol.setup li { margin: 0.4rem 0; }
-  </style>
-</head>
-<body>
-  <h1>Buzz Relay — join from here</h1>
-  <p>Your self-hosted Buzz workspace is running on this Umbrel. This page is how you become the first member.</p>
-
-  <div class="callout">
-    <strong>The empty “This relay is empty” page cannot invite you.</strong>
-    “Open in Buzz” and “you need an invite” are expected until you join as owner below. Do not use Open in Buzz for first-time setup.
-  </div>
-
-  <div class="card">
-    <h2>1. Copy this Join URL</h2>
-    <p>In <strong>Buzz Desktop → Join a Community</strong>, paste this WebSocket URL exactly (scheme, host, and port must match):</p>
-    <code>${ws_url_e}</code>
-    <p>On a pure LAN install use <code style="display:inline;padding:0.1rem 0.3rem">ws://</code>, not <code style="display:inline;padding:0.1rem 0.3rem">wss://</code>.</p>
-  </div>
-
-  <div class="card">
-    <h2>2. Be the relay owner</h2>
-    <p>${owner_note}</p>
-    <p>Owner public key (hex):</p>
-    <code>${owner_pubkey}</code>
-    ${owner_secret_block}
-    <p>Preferred with your existing Desktop identity: write your Desktop hex pubkey to <code style="display:inline;padding:0.1rem 0.3rem">data/secrets/owner-pubkey.override</code>, restart the app, then Join a Community with that same profile.</p>
-  </div>
-
-  <div class="card">
-    <h2>3. After you have joined</h2>
-    <ol class="setup">
-      <li>Buzz Desktop should show this community.</li>
-      <li>The web UI at <a href="/">${http_origin_e}/</a> will stop looking empty once there is content — auth toasts before join are normal.</li>
-    </ol>
-  </div>
-
-  <div class="card">
-    <h2>Backups</h2>
-    <ul>
-      <li><code style="display:inline;padding:0.1rem 0.3rem">data/secrets/</code> — relay identity + owner keys</li>
-      <li><code style="display:inline;padding:0.1rem 0.3rem">data/postgres/</code> — event database</li>
-      <li><code style="display:inline;padding:0.1rem 0.3rem">data/minio/</code> — media / object storage</li>
-      <li><code style="display:inline;padding:0.1rem 0.3rem">data/git/</code> — git scratch volume</li>
-    </ul>
-  </div>
-
-  <p>Upstream guide: <a href="https://engineering.block.xyz/blog/run-your-own-buzz-relay">Run your own Buzz relay</a></p>
-</body>
-</html>
-EOF
 
   cat > "${JOIN_TXT}" <<EOF
 Buzz Relay — Umbrel join info
@@ -223,9 +149,11 @@ EOF
     echo "App: buzz-relay - Owner secret: ${EXPORT_OWNER_SECRET}"
   fi
   echo "App: buzz-relay - Also written to data/setup/JOIN.txt"
+  echo "App: buzz-relay - Setup UI is served by setup-api at /umbrel-setup/"
   echo "App: buzz-relay - ============================================"
 }
 
 ensure_identity_secrets
-render_setup_page
+install_setup_server
+write_join_txt
 echo "App: buzz-relay - setup artifacts ready under data/setup/"

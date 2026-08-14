@@ -3,7 +3,7 @@ version: "3.7"
 services:
   app_proxy:
     environment:
-      # Front a tiny nginx that serves /umbrel-setup/ and proxies the rest to Buzz.
+      # Front nginx: /umbrel-setup/ → setup-api, everything else → Buzz relay.
       # Config is generated in the container entrypoint (never bind-mount nginx.conf —
       # a prior broken mount turned the conf path into a directory and broke opens).
       APP_HOST: buzz-relay_proxy_1
@@ -11,14 +11,13 @@ services:
       # Buzz Desktop and other Nostr clients cannot present Umbrel session cookies.
       PROXY_AUTH_ADD: "false"
 
-  # Static setup page + reverse proxy to the relay (WebSockets included).
+  # Setup UI (set RELAY_OWNER_PUBKEY) + reverse proxy to the relay (WebSockets included).
   proxy:
     image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     restart: on-failure
-    volumes:
-      - ${APP_DATA_DIR}/data/setup:/umbrel-setup:ro
     depends_on:
       - relay
+      - setup-api
     entrypoint:
       - /bin/sh
       - -euc
@@ -34,8 +33,11 @@ services:
             client_max_body_size 0;
 
             location /umbrel-setup/ {
-                alias /umbrel-setup/;
-                index index.html;
+                proxy_pass http://buzz-relay_setup-api_1:8090/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $$http_host;
+                proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $$scheme;
             }
             location = /umbrel-setup {
                 return 301 /umbrel-setup/;
@@ -60,12 +62,29 @@ services:
                 # People often land on / (empty Buzz UI) and hit the invite wall.
                 # Point them at the Umbrel join page with the WebSocket URL.
                 sub_filter_types text/html;
-                sub_filter '</body>' '<div id="umbrel-buzz-join-banner" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483647;padding:12px 16px;background:#111;color:#f5f5f5;font:14px/1.4 ui-sans-serif,system-ui,sans-serif;box-shadow:0 -4px 24px #0008;">First-time join? <a href="/umbrel-setup/" style="color:#7dd3fc;font-weight:600;">Open Umbrel setup</a> for the WebSocket URL — “Open in Buzz” needs membership and will ask for an invite.</div></body>';
+                sub_filter '</body>' '<div id="umbrel-buzz-join-banner" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483647;padding:12px 16px;background:#111;color:#f5f5f5;font:14px/1.4 ui-sans-serif,system-ui,sans-serif;box-shadow:0 -4px 24px #0008;">First-time join? <a href="/umbrel-setup/" style="color:#7dd3fc;font-weight:600;">Open Umbrel setup</a> to set your owner pubkey and copy the Join URL.</div></body>';
                 sub_filter_once on;
             }
         }
         NGINX
         exec nginx -g 'daemon off;'
+
+  # Editable /umbrel-setup/ UI — paste Desktop pubkey as RELAY_OWNER_PUBKEY.
+  setup-api:
+    image: python:3.12.13-alpine3.23@sha256:601d3d3797e90e2534782e69c85fafb7971b43f24c7b1b079b7e48dd435e458d
+    restart: on-failure
+    volumes:
+      - ${APP_DATA_DIR}/data/secrets:/secrets
+      - ${APP_DATA_DIR}/data/setup:/setup
+    environment:
+      BUZZ_SECRETS_DIR: /secrets
+      BUZZ_SETUP_DIR: /setup
+      BUZZ_SETUP_PORT: "8090"
+      BUZZ_WS_URL: ${APP_BUZZ_RELAY_WS_URL}
+      BUZZ_HTTP_ORIGIN: ${APP_BUZZ_RELAY_HTTP_ORIGIN}
+    entrypoint:
+      - python3
+      - /setup/server.py
 
   relay:
     image: ghcr.io/block/buzz:0.2.0@sha256:a0f67203d71d15d237fa7517788799957c30c8acdb81cbcff711e07e951c2710

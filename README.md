@@ -17,32 +17,33 @@ Pinned upstream image: `ghcr.io/block/buzz:0.2.0` (linux/amd64 + linux/arm64).
 1. Push this repository to GitHub (public).
 2. On umbrelOS: **App Store → three-dot menu → Community App Stores → Add** and paste the GitHub repo URL.
 3. Install **Buzz Relay** from the Buzz community store.
-4. Open the app (port **3737**). You should land on `/umbrel-setup/` with the Join URL + owner secret. First boot can take a couple of minutes. If you instead see the empty Buzz “This relay is empty” page, open `/umbrel-setup/` — that empty page cannot invite you; “Open in Buzz” will ask for an invite until you are a member.
-5. In Buzz Desktop → **Join a Community** (not “Open in Buzz” from the empty web UI) → paste the `ws://…` URL exactly (e.g. `ws://umbrel.local:3737`).
-6. Closed relay: join as owner (set `data/secrets/owner-pubkey.override` to your Desktop hex pubkey and restart, or import the bootstrap owner secret), or accept an invite.
+4. Open the app (port **3737**). You should land on `/umbrel-setup/`. First boot can take a couple of minutes. If you instead see the empty Buzz “This relay is empty” page, open `/umbrel-setup/`.
+5. On the setup page, paste your Buzz Desktop **public** key (Settings → Identity → 64-char hex, or `npub1…`) → **Save owner pubkey** → restart Buzz Relay in Umbrel. This sets `RELAY_OWNER_PUBKEY` the same way as the upstream [self-host guide](https://engineering.block.xyz/blog/run-your-own-buzz-relay).
+6. In Buzz Desktop → **Join a Community** (not “Open in Buzz”) → paste the `ws://…` URL from the setup page (e.g. `ws://umbrel.local:3737`).
 
-### Optional: use your existing Buzz Desktop identity as owner
+### Optional: set owner via file instead of the setup form
 
-Before the first start (or on a fresh data dir), write your 64-character hex pubkey to:
+Write your 64-character hex pubkey to:
 
 ```text
 <data-dir>/secrets/owner-pubkey.override
 ```
 
-Then start/restart the app. Get the pubkey from Buzz Desktop → Settings → Identity → Public key.
+Then restart the app.
 
 ## Local layout of the app package
 
 ```text
 buzz-relay/
   umbrel-app.yml       # Store listing + host port 3737
-  docker-compose.yml   # relay, postgres, redis, minio, minio-init
+  docker-compose.yml   # relay, setup-api, postgres, redis, minio, minio-init, proxy
   exports.sh           # Derived DB/Redis/S3/HMAC secrets + public URLs
-  hooks/pre-start      # Persist Nostr identity keys + write data/setup/
+  hooks/pre-start      # Persist Nostr identity keys + install setup server
+  hooks/setup_server.py # /umbrel-setup/ UI to set owner pubkey
   data/{secrets,postgres,redis,minio,git,setup}/
 ```
 
-`app_proxy` fronts a thin nginx on port 8080 (`PROXY_AUTH_ADD=false`) that serves `/umbrel-setup/` and proxies `/` (with WebSocket upgrades) to the Buzz relay. Nginx must forward the full `Host` header including port (`$http_host`) so Buzz can match the community bound to `umbrel.local:3737`.
+`app_proxy` fronts nginx on port 8080 (`PROXY_AUTH_ADD=false`): `/umbrel-setup/` → `setup-api` (editable owner pubkey), `/` → Buzz relay (WebSocket upgrades). Nginx must forward the full `Host` header including port (`$http_host`) so Buzz can match the community bound to `umbrel.local:3737`.
 
 ## Publishing
 

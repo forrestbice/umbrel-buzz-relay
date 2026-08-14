@@ -2,7 +2,7 @@ manifestVersion: 1
 id: buzz-relay
 category: social
 name: Buzz Relay
-version: "0.2.8"
+version: "0.2.9"
 tagline: Self-host a Buzz workspace for humans and agents
 description: >-
   Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
@@ -17,28 +17,24 @@ description: >-
   First-run setup:
 
 
-  1. Open this app (port 3737). You should land on /umbrel-setup/ with the
-  WebSocket Join URL and bootstrap owner secret — back that secret up. First
-  start can take a minute or two while images pull and the database migrates.
-  If you see the empty “This relay is empty” page instead, go to /umbrel-setup/
-  (0.2.8 also shows a banner link there).
+  1. Open this app (port 3737). You should land on /umbrel-setup/. First start
+  can take a minute or two while images pull and the database migrates. If you
+  see the empty “This relay is empty” page, use the banner or open /umbrel-setup/.
 
 
-  2. In Buzz Desktop, choose Join a Community (not “Open in Buzz” from the empty
-  web UI) and paste the WebSocket URL exactly. Scheme, host, and port must match
-  — typically ws://umbrel.local:3737. Use ws:// on a pure LAN, not wss://.
+  2. On /umbrel-setup/, paste your Buzz Desktop public key (Settings → Identity
+  → 64-char hex, or npub1…) and click Save owner pubkey. This is the same idea as
+  RELAY_OWNER_PUBKEY in the upstream self-host guide — your existing Desktop
+  identity becomes the relay owner. Then restart Buzz Relay in Umbrel.
 
 
-  3. This is a closed membership relay. Your Desktop identity must be the relay
-  owner (or an invited member). Easiest: write your Desktop hex public key to
-  data/secrets/owner-pubkey.override, restart the app, then Join a Community
-  with that same Desktop identity. Or import the bootstrap owner secret shown
-  on the setup page. “You need an invite” from Open in Buzz is expected until
-  then — the empty web UI cannot mint the first membership.
+  3. In Buzz Desktop, choose Join a Community (not “Open in Buzz”) and paste the
+  WebSocket URL from the setup page. Scheme, host, and port must match —
+  typically ws://umbrel.local:3737. Use ws:// on a pure LAN, not wss://.
 
 
-  4. The Buzz web UI at / may show “auth-required” toasts until you are joined
-  as a member — that is expected for the empty public view.
+  4. “You need an invite” from Open in Buzz is expected until you have joined as
+  owner. The empty web UI cannot mint the first membership.
 
 
   Tip: Install Tailscale on Umbrel and your devices for access away from home.
@@ -51,9 +47,9 @@ description: >-
   ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
   Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
 releaseNotes: >-
-  Clarify first-time join: empty “This relay is empty” / “need an invite” is the
-  closed Buzz web UI, not Umbrel onboarding. Setup page copy leads with Join a
-  Community. Banner on `/` links to `/umbrel-setup/` for the WebSocket URL.
+  Editable /umbrel-setup/: paste your Buzz Desktop hex pubkey or npub to set the
+  relay owner (RELAY_OWNER_PUBKEY / owner-pubkey.override), then restart. No SSH
+  required to use an existing Desktop identity.
 developer: Block
 website: https://buzz.xyz
 dependencies: []
