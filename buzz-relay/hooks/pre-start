@@ -117,7 +117,7 @@ render_setup_page() {
     owner_secret_block="<p><em>Bootstrap owner secret is not shown because an override pubkey is configured.</em></p>"
   else
     owner_note="This bootstrap owner was generated on first start. Import the secret key into Buzz Desktop (or keep it offline as a recovery key). Back it up before you rely on this relay."
-    owner_secret_block="<div class=\"card\"><h2>Bootstrap owner secret key</h2><p class=\"warn\">Treat this like a password. Anyone with it controls the relay owner role.</p><code>${owner_secret}</code></div>"
+    owner_secret_block="<p class=\"warn\">Bootstrap owner secret key — treat like a password. Anyone with it controls the relay owner role.</p><code>${owner_secret}</code>"
   fi
 
   cat > "${SETUP_DIR}/index.html" <<EOF
@@ -134,32 +134,44 @@ render_setup_page() {
     .card { border: 1px solid #8884; border-radius: 12px; padding: 1rem 1.1rem; margin: 1rem 0; }
     code { display: block; overflow-wrap: anywhere; word-break: break-all; padding: 0.75rem; border-radius: 8px; background: #8882; }
     .warn { color: #b45309; }
+    .callout { border-left: 4px solid #b45309; background: #b4530914; padding: 0.85rem 1rem; margin: 1rem 0; border-radius: 0 8px 8px 0; }
     a { color: inherit; }
+    ol.setup { padding-left: 1.2rem; }
+    ol.setup li { margin: 0.4rem 0; }
   </style>
 </head>
 <body>
-  <h1>Buzz Relay</h1>
-  <p>Your self-hosted Buzz workspace is running on this Umbrel.</p>
+  <h1>Buzz Relay — join from here</h1>
+  <p>Your self-hosted Buzz workspace is running on this Umbrel. This page is how you become the first member.</p>
 
-  <div class="card">
-    <h2>Web UI</h2>
-    <p><a href="/">${http_origin_e}/</a></p>
+  <div class="callout">
+    <strong>The empty “This relay is empty” page cannot invite you.</strong>
+    “Open in Buzz” and “you need an invite” are expected until you join as owner below. Do not use Open in Buzz for first-time setup.
   </div>
 
   <div class="card">
-    <h2>Buzz Desktop — Join a Community</h2>
-    <p>Paste this WebSocket URL exactly (scheme, host, and port must match):</p>
+    <h2>1. Copy this Join URL</h2>
+    <p>In <strong>Buzz Desktop → Join a Community</strong>, paste this WebSocket URL exactly (scheme, host, and port must match):</p>
     <code>${ws_url_e}</code>
     <p>On a pure LAN install use <code style="display:inline;padding:0.1rem 0.3rem">ws://</code>, not <code style="display:inline;padding:0.1rem 0.3rem">wss://</code>.</p>
   </div>
 
   <div class="card">
-    <h2>Owner public key (hex)</h2>
+    <h2>2. Be the relay owner</h2>
     <p>${owner_note}</p>
+    <p>Owner public key (hex):</p>
     <code>${owner_pubkey}</code>
+    ${owner_secret_block}
+    <p>Preferred with your existing Desktop identity: write your Desktop hex pubkey to <code style="display:inline;padding:0.1rem 0.3rem">data/secrets/owner-pubkey.override</code>, restart the app, then Join a Community with that same profile.</p>
   </div>
 
-  ${owner_secret_block}
+  <div class="card">
+    <h2>3. After you have joined</h2>
+    <ol class="setup">
+      <li>Buzz Desktop should show this community.</li>
+      <li>The web UI at <a href="/">${http_origin_e}/</a> will stop looking empty once there is content — auth toasts before join are normal.</li>
+    </ol>
+  </div>
 
   <div class="card">
     <h2>Backups</h2>

@@ -2,7 +2,7 @@ manifestVersion: 1
 id: buzz-relay
 category: social
 name: Buzz Relay
-version: "0.2.7"
+version: "0.2.8"
 tagline: Self-host a Buzz workspace for humans and agents
 description: >-
   Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
@@ -17,9 +17,11 @@ description: >-
   First-run setup:
 
 
-  1. Open this app (port 3737). You land on /umbrel-setup/ with the WebSocket
-  Join URL and bootstrap owner secret — back that secret up. First start can
-  take a minute or two while images pull and the database migrates.
+  1. Open this app (port 3737). You should land on /umbrel-setup/ with the
+  WebSocket Join URL and bootstrap owner secret — back that secret up. First
+  start can take a minute or two while images pull and the database migrates.
+  If you see the empty “This relay is empty” page instead, go to /umbrel-setup/
+  (0.2.8 also shows a banner link there).
 
 
   2. In Buzz Desktop, choose Join a Community (not “Open in Buzz” from the empty
@@ -31,7 +33,8 @@ description: >-
   owner (or an invited member). Easiest: write your Desktop hex public key to
   data/secrets/owner-pubkey.override, restart the app, then Join a Community
   with that same Desktop identity. Or import the bootstrap owner secret shown
-  on the setup page.
+  on the setup page. “You need an invite” from Open in Buzz is expected until
+  then — the empty web UI cannot mint the first membership.
 
 
   4. The Buzz web UI at / may show “auth-required” toasts until you are joined
@@ -48,9 +51,9 @@ description: >-
   ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
   Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
 releaseNotes: >-
-  Fix `/` returning "no community is configured for this host" after 0.2.6.
-  Nginx now forwards the full Host header (including port) so Buzz can match
-  the community bound to umbrel.local:3737. `/umbrel-setup/` unchanged.
+  Clarify first-time join: empty “This relay is empty” / “need an invite” is the
+  closed Buzz web UI, not Umbrel onboarding. Setup page copy leads with Join a
+  Community. Banner on `/` links to `/umbrel-setup/` for the WebSocket URL.
 developer: Block
 website: https://buzz.xyz
 dependencies: []
@@ -58,7 +61,7 @@ repo: https://github.com/block/buzz
 support: https://github.com/block/buzz/issues
 port: 3737
 gallery: []
-path: umbrel-setup/
+path: /umbrel-setup/
 defaultUsername: ""
 defaultPassword: ""
 submitter: Forrest Bice

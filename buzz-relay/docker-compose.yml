@@ -53,8 +53,15 @@ services:
                 proxy_set_header X-Forwarded-Proto $$scheme;
                 proxy_set_header Upgrade $$http_upgrade;
                 proxy_set_header Connection $$connection_upgrade;
+                # Disable upstream compression so sub_filter can inject the banner.
+                proxy_set_header Accept-Encoding "";
                 proxy_read_timeout 86400s;
                 proxy_send_timeout 86400s;
+                # People often land on / (empty Buzz UI) and hit the invite wall.
+                # Point them at the Umbrel join page with the WebSocket URL.
+                sub_filter_types text/html;
+                sub_filter '</body>' '<div id="umbrel-buzz-join-banner" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483647;padding:12px 16px;background:#111;color:#f5f5f5;font:14px/1.4 ui-sans-serif,system-ui,sans-serif;box-shadow:0 -4px 24px #0008;">First-time join? <a href="/umbrel-setup/" style="color:#7dd3fc;font-weight:600;">Open Umbrel setup</a> for the WebSocket URL — “Open in Buzz” needs membership and will ask for an invite.</div></body>';
+                sub_filter_once on;
             }
         }
         NGINX
