@@ -33,6 +33,12 @@ if [[ -d "${DATA_DIR}/proxy/nginx.conf" ]]; then
   rm -rf "${DATA_DIR}/proxy/nginx.conf"
 fi
 
+# Same class of Docker bug: missing file bind-mount → directory.
+if [[ -d "${SETUP_DIR}/relay_entrypoint.sh" ]]; then
+  echo "App: buzz-relay - removing broken relay_entrypoint.sh directory from a prior mount" >&2
+  rm -rf "${SETUP_DIR}/relay_entrypoint.sh"
+fi
+
 generate_keypair() {
   local output pubkey secret
   if ! command -v docker >/dev/null 2>&1; then
@@ -105,8 +111,16 @@ install_setup_server() {
     echo "App: buzz-relay - missing hooks/setup_server.py" >&2
     exit 1
   fi
+  if [[ ! -f "${hooks_dir}/relay_entrypoint.sh" ]]; then
+    echo "App: buzz-relay - missing hooks/relay_entrypoint.sh" >&2
+    exit 1
+  fi
   cp "${hooks_dir}/setup_server.py" "${SETUP_DIR}/server.py"
   chmod 755 "${SETUP_DIR}/server.py"
+  # Copied into the data volume so the relay container can mount it without
+  # depending on Umbrel's read-only app install tree at runtime.
+  cp "${hooks_dir}/relay_entrypoint.sh" "${SETUP_DIR}/relay_entrypoint.sh"
+  chmod 755 "${SETUP_DIR}/relay_entrypoint.sh"
 }
 
 write_join_txt() {

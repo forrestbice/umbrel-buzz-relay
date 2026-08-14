@@ -92,9 +92,17 @@ services:
     stop_grace_period: 1m
     volumes:
       - ${APP_DATA_DIR}/data/git:/data/git
+      # Secrets + entrypoint: setup UI can request an in-process restart that
+      # re-reads RELAY_OWNER_PUBKEY without docker.sock / umbreld access.
+      - ${APP_DATA_DIR}/data/secrets:/secrets
+      - ${APP_DATA_DIR}/data/setup/relay_entrypoint.sh:/relay_entrypoint.sh:ro
+    entrypoint:
+      - /bin/bash
+      - /relay_entrypoint.sh
     env_file:
       - ${APP_DATA_DIR}/data/secrets/relay.env
     environment:
+      BUZZ_SECRETS_DIR: /secrets
       BUZZ_BIND_ADDR: 0.0.0.0:3000
       BUZZ_HEALTH_PORT: "8080"
       BUZZ_METRICS_PORT: "9102"

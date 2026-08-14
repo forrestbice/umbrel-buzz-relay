@@ -19,6 +19,7 @@ OVERRIDE = SECRETS / "owner-pubkey.override"
 OWNER_PUBKEY_FILE = SECRETS / "owner.pubkey"
 OWNER_SECRET_FILE = SECRETS / "owner.secret"
 RELAY_ENV = SECRETS / "relay.env"
+RESTART_FLAG = SECRETS / "restart-relay.requested"
 JOIN_TXT = Path(os.environ.get("BUZZ_SETUP_DIR", "/setup")) / "JOIN.txt"
 
 WS_URL = os.environ.get(
@@ -195,11 +196,22 @@ def clear_owner_override() -> str | None:
     return pubkey
 
 
+def request_relay_restart() -> None:
+    """Ask the relay wrapper to re-read secrets and re-exec buzz-relay."""
+    SECRETS.mkdir(parents=True, exist_ok=True)
+    RESTART_FLAG.write_text("restart\n", encoding="utf-8")
+    try:
+        RESTART_FLAG.chmod(0o600)
+    except OSError:
+        pass
+
+
 def page(
     *,
     message: str | None = None,
     error: str | None = None,
     restart_needed: bool = False,
+    restarting: bool = False,
 ) -> str:
     owner = current_owner_pubkey()
     secret = bootstrap_secret()
@@ -211,12 +223,19 @@ def page(
         f'<div class="err">{html.escape(error)}</div>' if error else ""
     )
     restart_html = ""
-    if restart_needed:
+    if restarting:
+        restart_html = (
+            '<div class="ok"><strong>Relay restart requested.</strong> '
+            "The Buzz process is reloading owner settings now "
+            "(usually a few seconds). Then Join a Community with the same "
+            "Desktop identity.</div>"
+        )
+    elif restart_needed:
         restart_html = (
             '<div class="callout"><strong>Restart required.</strong> '
-            "In the Umbrel UI, stop and start <em>Buzz Relay</em> "
-            "(or Restart) so the relay loads the new owner pubkey. "
-            "Then Join a Community with the same Desktop identity.</div>"
+            "Use the <em>Restart relay</em> button in step 3 so the relay "
+            "loads the new owner pubkey. Then Join a Community with the same "
+            "Desktop identity.</div>"
         )
     secret_block = ""
     if secret:
@@ -304,10 +323,43 @@ def page(
   <div class="card">
     <h2>3. After saving</h2>
     <ol class="setup">
-      <li>Restart Buzz Relay in Umbrel.</li>
+      <li>Restart the relay so it loads the new owner pubkey (button below, or Restart in the Umbrel app menu).</li>
       <li>Desktop → Join a Community → paste the Join URL above (same Desktop profile whose pubkey you saved).</li>
       <li>Web UI: <a href="/">{html.escape(HTTP_ORIGIN)}/</a></li>
     </ol>
+    <form method="post" action="restart-relay">
+      <button type="submit">Restart relay</button>
+    </form>
+    <p style="margin-top:0.75rem;opacity:0.85;font-size:0.95rem">
+      This reloads the Buzz process inside the app (picks up the saved owner pubkey).
+      It does not restart Postgres/MinIO. If the button does nothing after an upgrade,
+      use Umbrel → Buzz Relay → Restart once so the new wrapper is installed.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>4. Away from home (Tailscale)</h2>
+    <p>Yes — Tailscale works with plain <code style="display:inline;padding:0.1rem 0.3rem">ws://</code>
+    (no <code style="display:inline;padding:0.1rem 0.3rem">wss://</code> needed). Tailscale is a private mesh VPN;
+    the Join URL stays <code style="display:inline;padding:0.1rem 0.3rem">ws://…</code> on port <strong>3737</strong>.</p>
+    <ol class="setup">
+      <li>Install <strong>Tailscale</strong> from the Umbrel App Store and sign in.</li>
+      <li>Install Tailscale on the phone/laptop you will use remotely; same account.</li>
+      <li>Confirm you can open the Umbrel UI at <code style="display:inline;padding:0.1rem 0.3rem">http://umbrel</code>
+      (MagicDNS) or <code style="display:inline;padding:0.1rem 0.3rem">http://&lt;tailscale-ip&gt;</code>.</li>
+      <li><strong>Important:</strong> Buzz binds the community to one host:port
+      (default <code style="display:inline;padding:0.1rem 0.3rem">umbrel.local:3737</code>).
+      Joining with a <em>different</em> hostname (MagicDNS <code style="display:inline;padding:0.1rem 0.3rem">umbrel</code>
+      or a raw <code style="display:inline;padding:0.1rem 0.3rem">100.x</code> IP) looks like a different community
+      and will fail or look empty.</li>
+      <li>Keep using the Join URL shown in step 1. On the remote device, make
+      <code style="display:inline;padding:0.1rem 0.3rem">umbrel.local</code> resolve to your Umbrel’s Tailscale IP, then paste
+      that same <code style="display:inline;padding:0.1rem 0.3rem">ws://umbrel.local:3737</code> URL in Desktop:</li>
+    </ol>
+    <p>macOS / Linux (replace with the Tailscale IP from the Tailscale app):</p>
+    <code>sudo sh -c 'echo "100.x.y.z umbrel.local" >> /etc/hosts'</code>
+    <p>Windows: add the same line to <code style="display:inline;padding:0.1rem 0.3rem">C:\\Windows\\System32\\drivers\\etc\\hosts</code> as Administrator.</p>
+    <p>Then Desktop → Join a Community → paste the step 1 URL exactly. Leave Tailscale connected while you use the community remotely.</p>
   </div>
 
   <div class="card">
@@ -394,6 +446,21 @@ class Handler(BaseHTTPRequestHandler):
                 page(
                     message=f"Override cleared. Bootstrap owner restored: {restored}",
                     restart_needed=True,
+                ),
+            )
+            return
+
+        if path == "restart-relay":
+            try:
+                request_relay_restart()
+            except OSError as exc:
+                self._send(500, page(error=f"Failed to request restart: {exc}"))
+                return
+            self._send(
+                200,
+                page(
+                    message="Restart signal written. The relay should come back in a few seconds.",
+                    restarting=True,
                 ),
             )
             return
