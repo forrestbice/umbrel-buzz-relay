@@ -1,7 +1,28 @@
 .DS_Store
 *.bak
 .env
+*.env
 .scratch/
+
+# Runtime Umbrel app-data (generated on install). Keep directory placeholders only.
 buzz-relay/data/secrets/*
 !buzz-relay/data/secrets/.gitkeep
-buzz-relay/data/setup/index.html
+buzz-relay/data/setup/*
+!buzz-relay/data/setup/.gitkeep
+buzz-relay/data/postgres/*
+!buzz-relay/data/postgres/.gitkeep
+buzz-relay/data/redis/*
+!buzz-relay/data/redis/.gitkeep
+buzz-relay/data/minio/*
+!buzz-relay/data/minio/.gitkeep
+buzz-relay/data/git/*
+!buzz-relay/data/git/.gitkeep
+buzz-relay/data/proxy/
+
+# Explicit secret filenames in case they appear outside data/secrets/
+**/relay.env
+**/owner.secret
+**/owner.pubkey
+**/owner-pubkey.override
+**/relay.secret
+**/JOIN.txt
