@@ -205,6 +205,7 @@ def write_join_txt(owner_pubkey: str, owner_secret: str) -> None:
 
 
 def set_owner_pubkey(owner_pubkey: str) -> None:
+    """Write the active owner pubkey (first install or later update)."""
     _ensure_secrets_dir()
     OVERRIDE.write_text(owner_pubkey + "\n", encoding="utf-8")
     OWNER_PUBKEY_FILE.write_text(owner_pubkey + "\n", encoding="utf-8")
@@ -212,20 +213,6 @@ def set_owner_pubkey(owner_pubkey: str) -> None:
     _own_for_relay(OWNER_PUBKEY_FILE)
     update_relay_env(owner_pubkey)
     write_join_txt(owner_pubkey, "")
-
-
-def clear_owner_override() -> str | None:
-    """Remove override and restore bootstrap owner pubkey from files."""
-    if not OVERRIDE.is_file():
-        return None
-    OVERRIDE.unlink()
-    pubkey = read_text(OWNER_PUBKEY_FILE)
-    secret = read_text(OWNER_SECRET_FILE)
-    if not pubkey:
-        return None
-    update_relay_env(pubkey)
-    write_join_txt(pubkey, secret)
-    return pubkey
 
 
 def request_relay_restart() -> None:
@@ -239,7 +226,6 @@ def page(
     *,
     message: str | None = None,
     error: str | None = None,
-    restart_needed: bool = False,
     restarting: bool = False,
 ) -> str:
     owner = current_owner_pubkey()
@@ -254,16 +240,9 @@ def page(
     restart_html = ""
     if restarting:
         restart_html = (
-            '<div class="ok"><strong>Relay restart requested.</strong> '
+            '<div class="ok"><strong>Owner saved — relay restarting.</strong> '
             "The Buzz process is reloading owner settings now "
             "(usually a few seconds). Then Join a Community with the same "
-            "Desktop identity.</div>"
-        )
-    elif restart_needed:
-        restart_html = (
-            '<div class="callout"><strong>Restart required.</strong> '
-            "Use the <em>Restart relay</em> button in step 3 so the relay "
-            "loads the new owner pubkey. Then Join a Community with the same "
             "Desktop identity.</div>"
         )
     secret_block = ""
@@ -276,19 +255,10 @@ def page(
         )
     elif using_override:
         secret_block = (
-            "<p><em>Bootstrap secret hidden — owner pubkey override is active "
-            "(your Desktop identity).</em></p>"
+            "<p><em>Bootstrap secret hidden — a custom owner pubkey is active "
+            "(your Desktop identity). To change owner again, paste a new pubkey "
+            "below and save.</em></p>"
         )
-
-    clear_form = ""
-    if using_override:
-        clear_form = """
-  <form method="post" action="clear-owner" class="card" onsubmit="return confirm('Remove the override and return to the generated bootstrap owner?');">
-    <h2>Revert to bootstrap owner</h2>
-    <p>Removes <code style="display:inline;padding:0.1rem 0.3rem">owner-pubkey.override</code> and restores the generated owner pubkey from first install.</p>
-    <button type="submit">Clear override</button>
-  </form>
-"""
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -336,7 +306,9 @@ def page(
     <p>Same idea as <code style="display:inline;padding:0.1rem 0.3rem">RELAY_OWNER_PUBKEY</code> in the
     <a href="https://engineering.block.xyz/blog/run-your-own-buzz-relay">self-host guide</a>:
     paste your <strong>public</strong> key from Buzz Desktop → Settings → Identity.
-    Never paste a secret/nsec here.</p>
+    Never paste a secret/nsec here. Saving updates the owner and restarts the relay
+    so the change takes effect immediately. Paste a different pubkey later to change
+    owner again.</p>
     <p>Current owner public key (hex):</p>
     <code>{html.escape(owner) if owner else "(not set yet)"}</code>
     {secret_block}
@@ -347,12 +319,11 @@ def page(
       <button type="submit">Save owner pubkey</button>
     </form>
   </div>
-  {clear_form}
 
   <div class="card">
     <h2>3. After saving</h2>
     <ol class="setup">
-      <li>Restart the relay so it loads the new owner pubkey (button below, or Restart in the Umbrel app menu).</li>
+      <li>Wait a few seconds for the relay restart (Save owner pubkey does this automatically).</li>
       <li>Desktop → Join a Community → paste the Join URL above (same Desktop profile whose pubkey you saved).</li>
       <li>Web UI: <a href="/">{html.escape(HTTP_ORIGIN)}/</a></li>
     </ol>
@@ -360,8 +331,8 @@ def page(
       <button type="submit">Restart relay</button>
     </form>
     <p style="margin-top:0.75rem;opacity:0.85;font-size:0.95rem">
-      This reloads the Buzz process inside the app (picks up the saved owner pubkey).
-      It does not restart Postgres/MinIO. If the button does nothing after an upgrade,
+      Optional manual restart if you need to reload without changing the owner.
+      It does not restart Postgres/MinIO. If restart does nothing after an upgrade,
       use Umbrel → Buzz Relay → Restart once so the new wrapper is installed.
     </p>
   </div>
@@ -446,6 +417,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 set_owner_pubkey(parsed)
+                request_relay_restart()
             except OSError as exc:
                 self._send(500, page(error=f"Failed to write secrets: {exc}"))
                 return
@@ -453,28 +425,7 @@ class Handler(BaseHTTPRequestHandler):
                 200,
                 page(
                     message=f"Owner pubkey saved: {parsed}",
-                    restart_needed=True,
-                ),
-            )
-            return
-
-        if path == "clear-owner":
-            try:
-                restored = clear_owner_override()
-            except OSError as exc:
-                self._send(500, page(error=f"Failed to clear override: {exc}"))
-                return
-            if not restored:
-                self._send(
-                    400,
-                    page(error="No override to clear, or bootstrap owner pubkey is missing."),
-                )
-                return
-            self._send(
-                200,
-                page(
-                    message=f"Override cleared. Bootstrap owner restored: {restored}",
-                    restart_needed=True,
+                    restarting=True,
                 ),
             )
             return
