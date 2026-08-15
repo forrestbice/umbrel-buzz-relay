@@ -2,7 +2,8 @@ manifestVersion: 1
 id: buzz-relay
 category: social
 name: Buzz Relay
-version: "0.2.10"
+icon: https://raw.githubusercontent.com/forrestbice/umbrel-buzz-relay/main/buzz-relay/icon.svg
+version: "0.2.11"
 tagline: Self-host a Buzz workspace for humans and agents
 description: >-
   Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
@@ -48,9 +49,8 @@ description: >-
   ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
   Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
 releaseNotes: >-
-  Restart relay button on /umbrel-setup/ (reloads owner pubkey without Umbrel
-  app menu). Tailscale remote-join instructions, including why the Join URL host
-  must stay umbrel.local:3737.
+  Set the Umbrel launcher icon to the Buzz bee mark (was unset / broken because
+  the community app had no icon URL).
 developer: Block
 website: https://buzz.xyz
 dependencies: []
