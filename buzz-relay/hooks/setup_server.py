@@ -117,11 +117,41 @@ def parse_owner_input(raw: str) -> str | None:
     return None
 
 
+# ghcr.io/block/buzz runs as USER buzz:buzz (uid/gid 1000). Secrets written
+# here must stay readable/writable by that user so the relay wrapper can
+# source relay.env and observe restart-relay.requested.
+BUZZ_UID = 1000
+BUZZ_GID = 1000
+
+
 def read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8").strip()
     except OSError:
         return ""
+
+
+def _own_for_relay(path: Path, mode: int = 0o600) -> None:
+    try:
+        path.chmod(mode)
+    except OSError:
+        pass
+    try:
+        os.chown(path, BUZZ_UID, BUZZ_GID)
+    except OSError:
+        pass
+
+
+def _ensure_secrets_dir() -> None:
+    SECRETS.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chown(SECRETS, BUZZ_UID, BUZZ_GID)
+    except OSError:
+        pass
+    try:
+        SECRETS.chmod(0o755)
+    except OSError:
+        pass
 
 
 def current_owner_pubkey() -> str:
@@ -148,7 +178,7 @@ def update_relay_env(owner_pubkey: str) -> None:
         lines.append("BUZZ_RELAY_PRIVATE_KEY=")
     lines.append(f"RELAY_OWNER_PUBKEY={owner_pubkey}")
     RELAY_ENV.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    RELAY_ENV.chmod(0o600)
+    _own_for_relay(RELAY_ENV)
 
 
 def write_join_txt(owner_pubkey: str, owner_secret: str) -> None:
@@ -175,9 +205,11 @@ def write_join_txt(owner_pubkey: str, owner_secret: str) -> None:
 
 
 def set_owner_pubkey(owner_pubkey: str) -> None:
-    SECRETS.mkdir(parents=True, exist_ok=True)
+    _ensure_secrets_dir()
     OVERRIDE.write_text(owner_pubkey + "\n", encoding="utf-8")
     OWNER_PUBKEY_FILE.write_text(owner_pubkey + "\n", encoding="utf-8")
+    _own_for_relay(OVERRIDE)
+    _own_for_relay(OWNER_PUBKEY_FILE)
     update_relay_env(owner_pubkey)
     write_join_txt(owner_pubkey, "")
 
@@ -198,12 +230,9 @@ def clear_owner_override() -> str | None:
 
 def request_relay_restart() -> None:
     """Ask the relay wrapper to re-read secrets and re-exec buzz-relay."""
-    SECRETS.mkdir(parents=True, exist_ok=True)
+    _ensure_secrets_dir()
     RESTART_FLAG.write_text("restart\n", encoding="utf-8")
-    try:
-        RESTART_FLAG.chmod(0o600)
-    except OSError:
-        pass
+    _own_for_relay(RESTART_FLAG)
 
 
 def page(

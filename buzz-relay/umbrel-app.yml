@@ -3,7 +3,7 @@ id: buzz-relay
 category: social
 name: Buzz Relay
 icon: https://raw.githubusercontent.com/forrestbice/umbrel-buzz-relay/main/buzz-relay/icon.svg
-version: "0.2.11"
+version: "0.2.12"
 tagline: Self-host a Buzz workspace for humans and agents
 description: >-
   Run your own Buzz relay on Umbrel — a Nostr-based workspace where people and
@@ -49,8 +49,9 @@ description: >-
   ⚠️ Back up data/secrets/, Postgres, MinIO, and git volumes before upgrades.
   Rotating BUZZ_RELAY_PRIVATE_KEY changes the relay's advertised identity.
 releaseNotes: >-
-  Set the Umbrel launcher icon to the Buzz bee mark (was unset / broken because
-  the community app had no icon URL).
+  Fix app crash-loop from 0.2.10 restart wrapper: secrets are now owned by the
+  Buzz container user (uid 1000) so relay.env can be read. Also harden the
+  wrapper so an unreadable env file no longer exits the container.
 developer: Block
 website: https://buzz.xyz
 dependencies: []

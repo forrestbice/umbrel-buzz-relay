@@ -100,8 +100,25 @@ RELAY_OWNER_PUBKEY=${owner_pubkey}
 EOF
   chmod 600 "${RELAY_ENV}"
 
+  # ghcr.io/block/buzz runs as USER buzz:buzz (uid/gid 1000). The 0.2.10
+  # restart wrapper sources relay.env inside that user; root-only 0600 files
+  # made the container exit immediately under set -e.
+  chown_secrets_for_relay
+
   EXPORT_OWNER_PUBKEY="${owner_pubkey}"
   EXPORT_OWNER_SECRET="${owner_secret}"
+}
+
+chown_secrets_for_relay() {
+  # Match Dockerfile: USER buzz:buzz → uid 1000 gid 1000
+  if ! chown -R 1000:1000 "${SECRETS_DIR}" 2>/dev/null; then
+    echo "App: buzz-relay - warning: could not chown ${SECRETS_DIR} to 1000:1000" >&2
+  fi
+  # Ensure the relay can create/remove restart-relay.requested
+  chmod 755 "${SECRETS_DIR}" 2>/dev/null || true
+  if [[ -f "${RELAY_ENV}" ]]; then
+    chmod 600 "${RELAY_ENV}" 2>/dev/null || true
+  fi
 }
 
 install_setup_server() {
